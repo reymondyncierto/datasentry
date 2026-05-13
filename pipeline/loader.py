@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from pipeline.exceptions import DatabaseWriteError
+from pipeline.exceptions import DatabaseWriteError, DuplicateTransactionError
 
 
 class SQLiteLoader:
@@ -41,7 +41,7 @@ class SQLiteLoader:
         finally:
             conn.close()
 
-    def write(self, row: dict[str, Any]) -> None:
+    def write(self, row: dict[str, Any], row_index: int) -> None:
         try:
             conn = self._connect()
         except sqlite3.Error as exc:
@@ -70,6 +70,15 @@ class SQLiteLoader:
                 ),
             )
             conn.commit()
+        except sqlite3.IntegrityError as exc:
+            if "UNIQUE constraint failed: transactions.transaction_id" in str(exc):
+                raise DuplicateTransactionError(
+                    row_index=row_index,
+                    field_name="transaction_id",
+                    bad_value=row["transaction_id"],
+                    reason="duplicate_transaction_id",
+                ) from exc
+            raise DatabaseWriteError(str(exc)) from exc
         except sqlite3.Error as exc:
             raise DatabaseWriteError(str(exc)) from exc
         finally:

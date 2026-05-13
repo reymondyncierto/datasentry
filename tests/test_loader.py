@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.exceptions import DatabaseWriteError
+from pipeline.exceptions import DatabaseWriteError, DuplicateTransactionError
 from pipeline.loader import SQLiteLoader
 
 
@@ -24,7 +24,7 @@ def test_loader_writes_row(tmp_path: Path) -> None:
     loader = SQLiteLoader(str(db_path))
 
     loader.initialize()
-    loader.write(sample_row())
+    loader.write(sample_row(), row_index=1)
 
     assert loader.count_rows() == 1
 
@@ -40,3 +40,15 @@ def test_loader_db_failure_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(DatabaseWriteError):
         loader.initialize()
+
+
+def test_loader_duplicate_id_raises_typed_error(tmp_path: Path) -> None:
+    db_path = tmp_path / "test.db"
+    loader = SQLiteLoader(str(db_path))
+    row = sample_row()
+
+    loader.initialize()
+    loader.write(row, row_index=1)
+
+    with pytest.raises(DuplicateTransactionError):
+        loader.write(row, row_index=2)

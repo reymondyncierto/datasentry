@@ -35,6 +35,10 @@ class BusinessRuleError(ValidationError):
     """Raised when a value violates a business rule."""
 
 
+class DuplicateTransactionError(ValidationError):
+    """Raised when transaction_id already exists in persistence."""
+
+
 class DatabaseWriteError(DataSentryError):
     """Raised when writing to SQLite fails."""
 

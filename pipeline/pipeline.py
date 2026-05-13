@@ -55,7 +55,7 @@ def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> 
                 try:
                     validated = validate_row(row, row_index)
                     transformed = transform_transaction(validated)
-                    loader.write(transformed)
+                    loader.write(transformed, row_index=row_index)
                     succeeded += 1
                 except ValidationError as exc:
                     failed += 1

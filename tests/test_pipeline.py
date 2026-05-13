@@ -102,7 +102,7 @@ def test_db_write_failure_halts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         ],
     )
 
-    def _boom(self: SQLiteLoader, row: dict[str, str]) -> None:  # pragma: no cover
+    def _boom(self: SQLiteLoader, row: dict[str, str], row_index: int) -> None:  # pragma: no cover
         raise DatabaseWriteError("forced failure")
 
     monkeypatch.setattr(SQLiteLoader, "write", _boom)
@@ -149,3 +149,37 @@ def test_unreadable_file_raises_file_read_error(tmp_path: Path, monkeypatch: pyt
 
     with pytest.raises(FileReadError):
         run_pipeline(str(csv_path), str(db_path))
+
+
+def test_duplicate_transaction_is_skipped_not_fatal(tmp_path: Path) -> None:
+    csv_path = tmp_path / "input.csv"
+    db_path = tmp_path / "test.db"
+    duplicate_id = "8d8b6f03-5a5a-4fd6-bcf1-9a6f10862ef0"
+    rows = [
+        {
+            "transaction_id": duplicate_id,
+            "customer_id": "CUST1",
+            "amount": "10.50",
+            "currency": "usd",
+            "transaction_date": "2026-05-13",
+            "status": "completed",
+            "description": "ok",
+        },
+        {
+            "transaction_id": duplicate_id,
+            "customer_id": "CUST2",
+            "amount": "11.50",
+            "currency": "usd",
+            "transaction_date": "2026-05-13",
+            "status": "completed",
+            "description": "dup",
+        },
+    ]
+    write_rows(csv_path, rows)
+
+    result = run_pipeline(str(csv_path), str(db_path))
+
+    assert result["rows_processed"] == 2
+    assert result["rows_written"] == 1
+    assert result["rows_failed"] == 1
+    assert result["failure_breakdown"]["duplicate_transaction_id"] == 1

@@ -1,3 +1,7 @@
+import random
+
+from faker import Faker
+
 from generate_data import generate_rows
 
 
@@ -12,6 +16,8 @@ def test_corrupt_mode_injects_faults() -> None:
 
 
 def test_corrupt_mode_every_row_is_corrupted() -> None:
+    random.seed(123)
+    Faker.seed(123)
     rows = generate_rows("corrupt", 18, 0.2)
     assert len(rows) == 18
 
