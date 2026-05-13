@@ -75,6 +75,9 @@ def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> 
     except UnicodeDecodeError as exc:
         logger.critical("input file not utf-8")
         raise FileReadError("input CSV is not valid UTF-8") from exc
+    except OSError as exc:
+        logger.critical("input file cannot be opened")
+        raise FileReadError(f"input CSV could not be opened: {input_path}") from exc
 
     summary = render_audit_report(processed, succeeded, failed, failure_reasons)
     logger.info("run complete")

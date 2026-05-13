@@ -135,3 +135,17 @@ def test_audit_report_accuracy(tmp_path: Path) -> None:
     assert result["rows_processed"] == 10
     assert result["rows_written"] == 7
     assert result["rows_failed"] == 3
+
+
+def test_unreadable_file_raises_file_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    csv_path = tmp_path / "input.csv"
+    db_path = tmp_path / "test.db"
+    csv_path.write_text("", encoding="utf-8")
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "open", _boom)
+
+    with pytest.raises(FileReadError):
+        run_pipeline(str(csv_path), str(db_path))
