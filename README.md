@@ -79,3 +79,31 @@ This CSV includes:
 ```bash
 pytest -q
 ```
+
+## Implementation Map: Error Handling and Validation
+
+### Proper Error Handling (intentional failure handling, no silent suppression)
+- `pipeline/exceptions.py`: typed exception hierarchy for recoverable vs fatal paths (`ValidationError` subclasses, `DatabaseWriteError`, `FileReadError`).
+- `pipeline/pipeline.py`: explicit error policy in orchestration.
+  - Catches `ValidationError` per row, logs warning context, persists rejected row, continues.
+  - Raises fatal `DatabaseWriteError` on non-recoverable DB faults.
+  - Maps file open/encoding/header faults to `FileReadError`.
+- `pipeline/loader.py`: DB-layer failure mapping.
+  - Converts duplicate transaction key writes to `DuplicateTransactionError` (recoverable row rejection).
+  - Keeps other SQLite faults as `DatabaseWriteError` (fatal).
+- `pipeline/logger.py`: structured warning/error/critical logging with row context fields.
+- Tests validating failure behavior:
+  - `tests/test_pipeline.py`
+  - `tests/test_loader.py`
+  - `tests/test_exceptions.py`
+
+### Proper Validation (input/schema/business-rule validation)
+- `pipeline/models.py`: strict Pydantic transaction schema and business rules (UUID v4, positive amount, ISO date parsing, status enum, field constraints).
+- `pipeline/validators.py`: row-validation adapter that maps schema/rule failures into typed validation errors with row/field/value/reason.
+- `pipeline/transformer.py`: deterministic normalization before persistence (e.g., currency casing, whitespace handling).
+- `generate_data.py`: controlled corruption modes for validation-path testing (`clean`, `corrupt`, `mixed`).
+- Tests validating input/data correctness rules:
+  - `tests/test_models.py`
+  - `tests/test_validators.py`
+  - `tests/test_transformer.py`
+  - `tests/test_generate_data.py`
