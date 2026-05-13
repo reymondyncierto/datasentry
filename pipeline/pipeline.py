@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from pipeline.exceptions import DatabaseWriteError, FileReadError, ValidationError
 from pipeline.loader import SQLiteLoader
@@ -21,6 +23,7 @@ class PipelineResult(dict):
 
 
 def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> PipelineResult:
+    run_id = str(uuid4())
     logger = configure_logger(file_path=log_file)
     loader = SQLiteLoader(db_path)
     loader.initialize()
@@ -60,6 +63,14 @@ def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> 
                 except ValidationError as exc:
                     failed += 1
                     failure_reasons[exc.reason] += 1
+                    loader.write_rejected_row(
+                        run_id=run_id,
+                        row_index=exc.row_index,
+                        field_name=exc.field_name,
+                        bad_value=exc.bad_value,
+                        reason=exc.reason,
+                        raw_row=json.dumps(row, ensure_ascii=True),
+                    )
                     logger.warning(
                         "row skipped",
                         extra={
@@ -87,6 +98,7 @@ def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> 
             "rows_written": succeeded,
             "rows_failed": failed,
             "failure_breakdown": dict(failure_reasons),
+            "run_id": run_id,
             "report": summary,
         }
     )

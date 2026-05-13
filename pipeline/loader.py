@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,20 @@ class SQLiteLoader:
                     transaction_date TEXT NOT NULL,
                     status TEXT NOT NULL,
                     description TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS rejected_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT NOT NULL,
+                    row_index INTEGER NOT NULL,
+                    field_name TEXT NOT NULL,
+                    bad_value TEXT,
+                    reason TEXT NOT NULL,
+                    raw_row TEXT NOT NULL,
+                    rejected_at TEXT NOT NULL
                 )
                 """
             )
@@ -91,5 +106,57 @@ class SQLiteLoader:
         try:
             row = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()
             return int(row[0])
+        finally:
+            conn.close()
+
+    def count_rejected_rows(self) -> int:
+        if not Path(self.db_path).exists():
+            return 0
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT COUNT(*) FROM rejected_transactions").fetchone()
+            return int(row[0])
+        finally:
+            conn.close()
+
+    def write_rejected_row(
+        self,
+        run_id: str,
+        row_index: int,
+        field_name: str,
+        bad_value: object,
+        reason: str,
+        raw_row: str,
+    ) -> None:
+        try:
+            conn = self._connect()
+        except sqlite3.Error as exc:
+            raise DatabaseWriteError(str(exc)) from exc
+        try:
+            conn.execute(
+                """
+                INSERT INTO rejected_transactions (
+                    run_id,
+                    row_index,
+                    field_name,
+                    bad_value,
+                    reason,
+                    raw_row,
+                    rejected_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    row_index,
+                    field_name,
+                    str(bad_value) if bad_value is not None else None,
+                    reason,
+                    raw_row,
+                    datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                ),
+            )
+            conn.commit()
+        except sqlite3.Error as exc:
+            raise DatabaseWriteError(str(exc)) from exc
         finally:
             conn.close()

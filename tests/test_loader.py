@@ -52,3 +52,20 @@ def test_loader_duplicate_id_raises_typed_error(tmp_path: Path) -> None:
 
     with pytest.raises(DuplicateTransactionError):
         loader.write(row, row_index=2)
+
+
+def test_loader_persists_rejected_row(tmp_path: Path) -> None:
+    db_path = tmp_path / "test.db"
+    loader = SQLiteLoader(str(db_path))
+    loader.initialize()
+
+    loader.write_rejected_row(
+        run_id="run-1",
+        row_index=5,
+        field_name="amount",
+        bad_value="abc",
+        reason="invalid_type",
+        raw_row='{"amount":"abc"}',
+    )
+
+    assert loader.count_rejected_rows() == 1

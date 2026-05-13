@@ -57,6 +57,7 @@ def test_partial_bad_rows_are_skipped(tmp_path: Path) -> None:
     assert result["rows_processed"] == 2
     assert result["rows_written"] == 1
     assert result["rows_failed"] == 1
+    assert result["run_id"]
 
 
 def test_empty_csv_file(tmp_path: Path) -> None:
@@ -183,3 +184,6 @@ def test_duplicate_transaction_is_skipped_not_fatal(tmp_path: Path) -> None:
     assert result["rows_written"] == 1
     assert result["rows_failed"] == 1
     assert result["failure_breakdown"]["duplicate_transaction_id"] == 1
+
+    loader = SQLiteLoader(str(db_path))
+    assert loader.count_rejected_rows() == 1
