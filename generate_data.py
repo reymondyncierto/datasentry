@@ -58,8 +58,12 @@ def apply_fault(row: dict[str, Any], fault: str, seen_ids: list[str]) -> dict[st
         broken["status"] = "processing"
     elif fault == "wrong_type_amount":
         broken["amount"] = faker.lexify(text="????")
-    elif fault == "duplicate_id" and seen_ids:
-        broken["transaction_id"] = random.choice(seen_ids)
+    elif fault == "duplicate_id":
+        previous_ids = [item for item in seen_ids if item != row["transaction_id"]]
+        if previous_ids:
+            broken["transaction_id"] = random.choice(previous_ids)
+        else:
+            broken["amount"] = -abs(float(broken["amount"]))
     return broken
 
 
