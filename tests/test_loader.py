@@ -69,3 +69,26 @@ def test_loader_persists_rejected_row(tmp_path: Path) -> None:
     )
 
     assert loader.count_rejected_rows() == 1
+
+
+def test_export_rejected_rows_to_csv(tmp_path: Path) -> None:
+    db_path = tmp_path / "test.db"
+    out_path = tmp_path / "rejected.csv"
+    loader = SQLiteLoader(str(db_path))
+    loader.initialize()
+    loader.write_rejected_row(
+        run_id="run-export",
+        row_index=8,
+        field_name="status",
+        bad_value="processing",
+        reason="invalid_status",
+        raw_row='{"status":"processing"}',
+    )
+
+    exported = loader.export_rejected_rows_to_csv("run-export", str(out_path))
+
+    assert exported == 1
+    assert out_path.exists()
+    content = out_path.read_text(encoding="utf-8")
+    assert "run_id,row_index,field_name,bad_value,reason,raw_row,rejected_at" in content
+    assert "run-export,8,status,processing,invalid_status" in content

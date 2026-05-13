@@ -104,9 +104,31 @@ def run_pipeline(input_path: str, db_path: str, log_file: str | None = None) -> 
     )
 
 
+def export_rejected_rows(db_path: str, run_id: str, output_path: str) -> int:
+    loader = SQLiteLoader(db_path)
+    loader.initialize()
+    return loader.export_rejected_rows_to_csv(run_id=run_id, output_path=output_path)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
+
+    run_parser = subparsers.add_parser("run", help="Run CSV ingestion pipeline")
+    run_parser.add_argument("--input", required=True)
+    run_parser.add_argument("--db", default="datasentry.db")
+    run_parser.add_argument("--log-file", default=None)
+
+    export_parser = subparsers.add_parser(
+        "export-rejected",
+        help="Export rejected rows for a run_id to CSV",
+    )
+    export_parser.add_argument("--db", default="datasentry.db")
+    export_parser.add_argument("--run-id", required=True)
+    export_parser.add_argument("--output", required=True)
+
+    # Backward-compatible flags without explicit subcommand.
+    parser.add_argument("--input")
     parser.add_argument("--db", default="datasentry.db")
     parser.add_argument("--log-file", default=None)
     return parser.parse_args()
@@ -114,7 +136,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    result = run_pipeline(args.input, args.db, args.log_file)
+    if args.command == "export-rejected":
+        exported = export_rejected_rows(args.db, args.run_id, args.output)
+        print(f"exported_rejected_rows: {exported}")
+        print(f"output_path: {args.output}")
+        return
+
+    input_path = getattr(args, "input", None)
+    if not input_path:
+        raise SystemExit("input is required (use `run --input` or `--input`).")
+
+    result = run_pipeline(input_path, args.db, args.log_file)
+    print(f"run_id: {result['run_id']}")
     print(result["report"])
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import csv
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -160,3 +161,49 @@ class SQLiteLoader:
             raise DatabaseWriteError(str(exc)) from exc
         finally:
             conn.close()
+
+    def export_rejected_rows_to_csv(self, run_id: str, output_path: str) -> int:
+        try:
+            conn = self._connect()
+        except sqlite3.Error as exc:
+            raise DatabaseWriteError(str(exc)) from exc
+        try:
+            rows = conn.execute(
+                """
+                SELECT
+                    run_id,
+                    row_index,
+                    field_name,
+                    bad_value,
+                    reason,
+                    raw_row,
+                    rejected_at
+                FROM rejected_transactions
+                WHERE run_id = ?
+                ORDER BY row_index ASC
+                """,
+                (run_id,),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            raise DatabaseWriteError(str(exc)) from exc
+        finally:
+            conn.close()
+
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(
+                [
+                    "run_id",
+                    "row_index",
+                    "field_name",
+                    "bad_value",
+                    "reason",
+                    "raw_row",
+                    "rejected_at",
+                ]
+            )
+            for row in rows:
+                writer.writerow(row)
+        return len(rows)
