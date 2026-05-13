@@ -40,9 +40,33 @@ def test_negative_amount_rejected() -> None:
         validate_row(row, 3)
 
 
+def test_zero_amount_rejected() -> None:
+    row = make_row()
+    row["amount"] = 0
+
+    with pytest.raises(BusinessRuleError):
+        validate_row(row, 4)
+
+
+def test_invalid_date_format() -> None:
+    row = make_row()
+    row["transaction_date"] = "13-05-2026"
+
+    with pytest.raises(InvalidTypeError):
+        validate_row(row, 5)
+
+
+def test_invalid_status_enum() -> None:
+    row = make_row()
+    row["status"] = "processing"
+
+    with pytest.raises(BusinessRuleError):
+        validate_row(row, 6)
+
+
 def test_non_numeric_amount() -> None:
     row = make_row()
     row["amount"] = "abc"
 
     with pytest.raises(InvalidTypeError):
-        validate_row(row, 4)
+        validate_row(row, 7)
